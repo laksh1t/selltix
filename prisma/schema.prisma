@@ -1,0 +1,196 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum PlatformRole {
+  USER
+  ADMIN
+}
+
+enum EventStatus {
+  DRAFT
+  PUBLISHED
+  CANCELLED
+  COMPLETED
+}
+
+enum BookingStatus {
+  PENDING
+  CONFIRMED
+  CANCELLED
+  EXPIRED
+  REFUNDED
+}
+
+enum TicketStatus {
+  VALID
+  USED
+  CANCELLED
+  REFUNDED
+}
+
+enum PaymentStatus {
+  PENDING
+  SUCCESS
+  FAILED
+  REFUNDED
+}
+
+model User {
+  id           String         @id @default(uuid())
+  email        String         @unique
+  password     String
+  name         String
+  platformRole PlatformRole   @default(USER)
+  tokenVersion Int            @default(0)
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+
+  organizations Organization[]
+  bookings      Booking[]
+}
+
+model Organization {
+  id        String    @id @default(uuid())
+  name      String
+  ownerId   String
+  owner     User      @relation(fields: [ownerId], references: [id])
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  events Event[]
+
+  @@index([ownerId])
+}
+
+model Event {
+  id             String       @id @default(uuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  title          String
+  description    String?
+  venue          String?
+  startDate      DateTime?
+  endDate        DateTime?
+  capacity       Int?
+  bannerUrl      String?
+  status         EventStatus  @default(DRAFT)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  deletedAt      DateTime?
+
+  ticketTypes TicketType[]
+  bookings    Booking[]
+
+  @@index([organizationId])
+  @@index([status])
+}
+
+model TicketType {
+  id        String    @id @default(uuid())
+  eventId   String
+  event     Event     @relation(fields: [eventId], references: [id])
+  name      String
+  price     Float
+  capacity  Int
+  soldCount Int       @default(0)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  bookingItems BookingItem[]
+
+  @@index([eventId])
+}
+
+model Booking {
+  id         String        @id @default(uuid())
+  eventId    String
+  event      Event         @relation(fields: [eventId], references: [id])
+  userId     String
+  user       User          @relation(fields: [userId], references: [id])
+  totalPrice Float
+  status     BookingStatus @default(PENDING)
+  expiresAt  DateTime?
+  createdAt  DateTime      @default(now())
+  updatedAt  DateTime      @updatedAt
+
+  items    BookingItem[]
+  payments Payment[]
+
+  @@index([eventId])
+  @@index([userId])
+  @@index([status])
+}
+
+model BookingItem {
+  id              String     @id @default(uuid())
+  bookingId       String
+  booking         Booking    @relation(fields: [bookingId], references: [id])
+  ticketTypeId    String
+  ticketType      TicketType @relation(fields: [ticketTypeId], references: [id])
+  quantity        Int
+  priceAtPurchase Float
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+
+  tickets Ticket[]
+
+  @@index([bookingId])
+  @@index([ticketTypeId])
+}
+
+model Ticket {
+  id            String       @id @default(uuid())
+  bookingItemId String
+  bookingItem   BookingItem  @relation(fields: [bookingItemId], references: [id])
+  ticketCode    String       @unique @default(uuid())
+  status        TicketStatus @default(VALID)
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  attendance Attendance?
+
+  @@index([bookingItemId])
+  @@index([ticketCode])
+  @@index([status])
+}
+
+model Payment {
+  id            String        @id @default(uuid())
+  bookingId     String
+  booking       Booking       @relation(fields: [bookingId], references: [id])
+  provider      String        @default("RAZORPAY")
+  status        PaymentStatus @default(PENDING)
+  amount        Float
+  transactionId String?
+  paidAt        DateTime?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  @@index([bookingId])
+  @@index([status])
+}
+
+model Attendance {
+  id          String   @id @default(uuid())
+  ticketId    String   @unique
+  ticket      Ticket   @relation(fields: [ticketId], references: [id])
+  checkedInAt DateTime @default(now())
+  checkedInBy String
+  deviceId    String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([ticketId])
+}
+}
