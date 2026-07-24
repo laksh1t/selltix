@@ -17,7 +17,7 @@ export default function OrgOverview() {
       try {
         const res = await api.get('/organizations')
         const data = res.data?.data;
-        const allOrgs = data?.data?.items ? data.data.items : (Array.isArray(data) ? data : []);
+        const allOrgs = data?.items ? data.items : (Array.isArray(data) ? data : []);
         const matched = allOrgs.find(o => o.id === orgId || o._id === orgId)
         if (matched) setOrg(matched)
       } catch (err) {
